@@ -270,6 +270,27 @@ que el parser esté roto.
 | Circuit breaker | Pausa toda la búsqueda al primer captcha |
 | Sesión | `storageState` de Playwright en disco (cookies, incluyendo `cf_clearance`), login manual una vez — **obligatoria** para pasar el challenge de Cloudflare en `/company/{slug}` (403 confirmado en Fase 0 sin ella; 200 OK confirmado con ella, vía `fetch` plano, sin necesidad de navegador por request). `cf_clearance` tiene un TTL desconocido y posiblemente atado a IP/fingerprint — pendiente medir en Fase 4 cuánto dura y si sobrevive un cambio de IP del worker; al expirar, tratar como `blocked` y disparar una renovación de sesión vía `BrowserClient` |
 
+**Sesión vencida = `blocked` (2026-10-20).** Con cookies vencidas Wellfound no
+responde el 403 `Cf-Mitigated` esperado: redirige en loop y `fetch` corta con
+"redirect count exceeded". `HttpClient` lo trataba como fallo de red →
+`rate_limited` (4 intentos inútiles y un mensaje engañoso en la UI: "6
+empresa(s) no se pudieron enriquecer: rate_limited"). Ahora es `blocked` con
+detalle "Sesión de Wellfound vencida", sin reintentos. Además
+`WellfoundAdapter` cierra el circuit breaker solo cuando `storageState.json`
+cambia (mtime distinto al del momento del bloqueo): antes nadie llamaba a
+`breaker.reset()`, y tras renovar la sesión el worker seguía bloqueado hasta
+reiniciarse.
+
+**Dos bugs encontrados al armar la guía de usuario (2026-10-20).** (1) Un
+`company-detail` con cache-hit terminaba sin publicar `company.updated`: como
+`company.found` solo lleva datos del listado, las empresas cacheadas se veían
+en pantalla sin mercado/sitio/LinkedIn/founders aunque Postgres (y el CSV) los
+tuvieran. Ahora el cache-hit publica `company.updated` con lo cacheado. (2)
+`filterCompaniesByLocation` (`/export?location=`) había quedado atrás de
+`ResultsTable`: no dejaba pasar roles remotos sin ciudad ni matcheaba
+"Remote", así que con "United" la tabla mostraba 2 empresas y el CSV 1. Ahora
+aplica la misma regla que la tabla.
+
 ---
 
 ## 7. Contrato de API
