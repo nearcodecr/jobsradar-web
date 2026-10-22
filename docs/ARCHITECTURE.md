@@ -370,6 +370,14 @@ simulada. Se arregló agregando `Access-Control-Allow-Origin` a mano en el
 criterio que `@fastify/cors`) y se agregaron dos tests que sí mandan `Origin`
 para que esto no vuelva a pasar desapercibido.
 
+**Segunda parte del mismo bug (2026-10-21, producción).** Aun con
+`Access-Control-Allow-Origin` en el `writeHead()`, Node no manda los headers
+hasta escribir el primer byte del body: si la búsqueda no publicaba ningún
+evento (worker de producción sin consumir la cola), el stream quedaba mudo,
+Cloud Run cortaba la conexión y el navegador lo reportaba como error de CORS.
+Ahora el handler escribe `: connected` (comentario SSE, `EventSource` lo
+ignora) apenas abre, así los headers salen de inmediato.
+
 ---
 
 ## 8. Esquema de base de datos
