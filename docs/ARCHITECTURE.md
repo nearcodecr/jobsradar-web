@@ -291,6 +291,16 @@ tuvieran. Ahora el cache-hit publica `company.updated` con lo cacheado. (2)
 "Remote", así que con "United" la tabla mostraba 2 empresas y el CSV 1. Ahora
 aplica la misma regla que la tabla.
 
+**Sesión vencida ya no pausa la búsqueda (2026-10-21).** Con el cambio de
+arriba, una sesión vencida abría el breaker y, como el breaker frenaba también
+`listCompanies`, toda búsqueda nueva terminaba en `paused` con 0 empresas
+(visto en producción). Ahora `WellfoundAdapter` recuerda si el bloqueo vino de
+un request con sesión: ese caso frena solo `getCompany`, el listado (que no
+necesita sesión, Fase 0) sigue. `company-detail` ante `blocked` publica
+`company.failed` con `reason: "blocked"` y cuenta como intento resuelto (nadie
+lo reintenta; si no, `enrichment.done` nunca llegaba). Un `blocked` del
+listado mismo sigue frenando todo y pausando la búsqueda (AD-09).
+
 ---
 
 ## 7. Contrato de API
